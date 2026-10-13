@@ -569,6 +569,13 @@ const Login = () => {
                   {isLoading ? t("auth.loggingIn") : t("auth.login")}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
+                {setupStatus.oidcEnabled ? (
+                  <Button type="button" variant="outline" className="mt-2 w-full" disabled={isBusy} asChild>
+                    <a href="/api/app/auth/oidc/start">
+                      Continue with SSO
+                    </a>
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="outline"

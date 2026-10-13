@@ -60,6 +60,7 @@ type appStatusResponse struct {
 	SetupRequired bool                  `json:"setupRequired"`
 	SetupEnabled  bool                  `json:"setupEnabled"`
 	DemoMode      bool                  `json:"demoMode"`
+	OIDCEnabled   bool                  `json:"oidcEnabled"`
 	Turnstile     turnstilePublicConfig `json:"turnstile"`
 }
 

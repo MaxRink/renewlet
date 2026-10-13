@@ -46,6 +46,7 @@ func registerRoutes(app core.App, router *router.Router[*core.RequestEvent]) []a
 			SetupRequired: !hasEnabledAdmin(app),
 			SetupEnabled:  demoModePolicy.SetupEnabled(),
 			DemoMode:      demoModePolicy.Enabled(),
+			OIDCEnabled:   oidcFromEnv().Enabled,
 			Turnstile:     turnstile,
 		})
 	})
@@ -88,6 +89,8 @@ func registerRoutes(app core.App, router *router.Router[*core.RequestEvent]) []a
 	})
 
 	api.POST("/api/app/auth/login", func(e *core.RequestEvent) error { return handleAuthLogin(app, e) })
+	api.GET("/api/app/auth/oidc/start", func(e *core.RequestEvent) error { return handleOIDCStart(app, e) })
+	api.GET("/api/app/auth/oidc/callback", func(e *core.RequestEvent) error { return handleOIDCCallback(app, e) })
 	api.GET("/api/app/auth/session", func(e *core.RequestEvent) error { return handleAuthSession(app, e) })
 	api.POST("/api/app/auth/logout", func(e *core.RequestEvent) error { return handleAuthLogout(app, e) })
 	api.POST("/api/app/auth/mfa/verify", func(e *core.RequestEvent) error { return handleMFAVerify(app, e) })
