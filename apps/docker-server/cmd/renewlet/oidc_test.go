@@ -67,6 +67,37 @@ func TestOIDCHTTPClientDoesNotFollowRedirects(t *testing.T) {
 	}
 }
 
+func TestOIDCFindOrLinkUserExistingAndAdminProvisioning(t *testing.T) {
+	app := newSchemaTestApp(t)
+	if err := ensureSchema(app); err != nil {
+		t.Fatal(err)
+	}
+	admin, err := createUser(app, "Existing Admin", "existing@example.test", "password123", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims := oidcClaims{RegisteredClaims: jwt.RegisteredClaims{Issuer: "https://auth.example.test", Subject: "existing-sub"}, Email: "existing@example.test", EmailVerified: true, Name: "Existing Admin"}
+	linked, err := oidcFindOrLinkUser(app, claims, false)
+	if err != nil || linked.Id != admin.Id {
+		t.Fatalf("existing admin was not linked: %v", err)
+	}
+	linkedAgain, err := oidcFindOrLinkUser(app, claims, false)
+	if err != nil || linkedAgain.Id != admin.Id {
+		t.Fatalf("existing identity was not reused: %v", err)
+	}
+	newClaims := claims
+	newClaims.Subject = "new-sub"
+	newClaims.Email = "new@example.test"
+	newClaims.Name = "Provisioned Admin"
+	provisioned, err := oidcFindOrLinkUser(app, newClaims, true)
+	if err != nil || provisioned.GetString("role") != "admin" || !provisioned.Verified() {
+		t.Fatalf("admin provisioning failed: %v", err)
+	}
+	if _, err := oidcFindOrLinkUser(app, newClaims, false); err != nil {
+		t.Fatalf("provisioned identity was not reusable: %v", err)
+	}
+}
+
 func TestVerifyOIDCIDTokenWithFakeJWKSValidatesNonceIssuerAudienceAndExpiry(t *testing.T) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
