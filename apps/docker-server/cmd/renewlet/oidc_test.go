@@ -135,6 +135,29 @@ func TestExplicitOIDCLinkRequiresVerifiedAdminAndIsConflictSafe(t *testing.T) {
 	}
 }
 
+func TestExplicitOIDCLinkCrossEmailRequiresExpectedLocalEmail(t *testing.T) {
+	app := newSchemaTestApp(t)
+	if err := ensureSchema(app); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RENEWLET_OIDC_ENABLED", "true")
+	t.Setenv("RENEWLET_OIDC_ISSUER", "https://auth.example.test")
+	admin, err := createUser(app, "Existing Admin", "local@example.test", "password123", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := adminOIDCLinkRequest{UserID: admin.Id, Issuer: "https://auth.example.test", Subject: "provider-sub", Email: "admin@example.test"}
+	if err := linkOIDCIdentity(app, req); err == nil {
+		t.Fatal("strict HTTP-style mapping accepted a different provider email")
+	}
+	if _, _, _, err := validateOIDCIdentityWithLocalEmail(app, req, "wrong@example.test", true); err == nil {
+		t.Fatal("cross-email mapping accepted the wrong expected local email")
+	}
+	if _, _, _, err := validateOIDCIdentityWithLocalEmail(app, req, "local@example.test", true); err != nil {
+		t.Fatalf("explicit cross-email mapping rejected the expected local account: %v", err)
+	}
+}
+
 func TestVerifyOIDCIDTokenWithFakeJWKSValidatesNonceIssuerAudienceAndExpiry(t *testing.T) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
