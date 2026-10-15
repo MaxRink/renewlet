@@ -153,6 +153,7 @@ func ensureOIDCIdentitiesCollection(app core.App) error {
 			return err
 		}
 		c.AddIndex("idx_oidc_identities_issuer_subject_unique", true, "issuer, subject", "")
+		c.AddIndex("idx_oidc_identities_user_issuer_unique", true, "user, issuer", "")
 		return nil
 	})
 }

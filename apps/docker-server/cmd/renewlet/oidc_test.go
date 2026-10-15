@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 func TestSafeOIDCNextNeverReturnsExternalURL(t *testing.T) {
@@ -132,6 +133,35 @@ func TestExplicitOIDCLinkRequiresVerifiedAdminAndIsConflictSafe(t *testing.T) {
 	}
 	if err := linkOIDCIdentity(app, adminOIDCLinkRequest{UserID: normal.Id, Issuer: req.Issuer, Subject: "normal-sub", Email: "normal@example.test"}); err == nil {
 		t.Fatal("linked a non-admin user")
+	}
+}
+
+func TestOIDCIdentitySchemaRejectsConcurrentProviderDuplicates(t *testing.T) {
+	app := newSchemaTestApp(t)
+	if err := ensureSchema(app); err != nil {
+		t.Fatal(err)
+	}
+	admin, err := createUser(app, "Existing Admin", "existing@example.test", "password123", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	collection, err := app.FindCollectionByNameOrId("oidc_identities")
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := core.NewRecord(collection)
+	first.Set("user", admin.Id)
+	first.Set("issuer", "https://auth.example.test")
+	first.Set("subject", "first-sub")
+	if err := app.Save(first); err != nil {
+		t.Fatal(err)
+	}
+	second := core.NewRecord(collection)
+	second.Set("user", admin.Id)
+	second.Set("issuer", "https://auth.example.test")
+	second.Set("subject", "second-sub")
+	if err := app.Save(second); err == nil {
+		t.Fatal("schema accepted two identities for one user and issuer")
 	}
 }
 

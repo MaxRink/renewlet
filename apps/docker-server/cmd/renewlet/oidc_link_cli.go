@@ -12,7 +12,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// runOIDCLink is a root/console-only recovery path for installations whose
+// runOIDCLink is a console-only recovery path for installations whose
 // local admin cannot sign in yet. It links an existing verified administrator;
 // it never creates users, changes passwords, or edits the database directly.
 func runOIDCLink(args []string) error {

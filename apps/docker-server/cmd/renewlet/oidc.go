@@ -9,6 +9,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/subtle"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -308,8 +309,14 @@ func oidcFindOrLinkUser(app core.App, c oidcClaims, provision bool) (*core.Recor
 		}
 		return user, nil
 	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("find OIDC identity: %w", err)
+	}
 	user, err := app.FindAuthRecordByEmail("users", c.Email)
 	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("find OIDC user: %w", err)
+		}
 		if !provision {
 			return nil, errors.New("unknown account")
 		}
@@ -377,8 +384,13 @@ func validateOIDCIdentityWithLocalEmail(app core.App, req adminOIDCLinkRequest, 
 		}
 		return user, nil, true, nil
 	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, false, fmt.Errorf("find OIDC identity: %w", err)
+	}
 	if _, err := app.FindFirstRecordByFilter("oidc_identities", "user={:user} && issuer={:issuer}", dbx.Params{"user": user.Id, "issuer": issuer}); err == nil {
 		return nil, nil, false, errors.New("target user already has an identity for this provider")
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, false, fmt.Errorf("find target OIDC identity: %w", err)
 	}
 	col, err := app.FindCollectionByNameOrId("oidc_identities")
 	if err != nil {
