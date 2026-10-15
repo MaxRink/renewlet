@@ -334,6 +334,53 @@ func oidcFindOrLinkUser(app core.App, c oidcClaims, provision bool) (*core.Recor
 	}
 	return user, nil
 }
+
+// linkOIDCIdentity performs an explicit, idempotent administrator mapping.
+// It deliberately does not auto-provision or match by email alone.
+func linkOIDCIdentity(app core.App, req adminOIDCLinkRequest) error {
+	s := oidcFromEnv()
+	issuer := strings.TrimRight(strings.TrimSpace(req.Issuer), "/")
+	email := strings.TrimSpace(req.Email)
+	subject := strings.TrimSpace(req.Subject)
+	if !s.Enabled || s.Issuer == "" || issuer != s.Issuer {
+		return errors.New("issuer is not the configured OIDC provider")
+	}
+	if err := validateOIDCIssuer(issuer); err != nil {
+		return err
+	}
+	if subject == "" || email == "" {
+		return errors.New("subject and email are required")
+	}
+	user, err := app.FindRecordById("users", strings.TrimSpace(req.UserID))
+	if err != nil {
+		return errors.New("target user not found")
+	}
+	if user.GetBool("banned") || user.GetString("role") != "admin" || !user.Verified() {
+		return errors.New("target user must be a verified administrator")
+	}
+	if !strings.EqualFold(strings.TrimSpace(user.GetString("email")), email) {
+		return errors.New("OIDC email must match the target user")
+	}
+	identity, err := app.FindFirstRecordByFilter("oidc_identities", "issuer={:issuer} && subject={:subject}", dbx.Params{"issuer": issuer, "subject": subject})
+	if err == nil {
+		if identity.GetString("user") != user.Id {
+			return errors.New("OIDC identity is already linked to another user")
+		}
+		return nil
+	}
+	if _, err := app.FindFirstRecordByFilter("oidc_identities", "user={:user} && issuer={:issuer}", dbx.Params{"user": user.Id, "issuer": issuer}); err == nil {
+		return errors.New("target user already has an identity for this provider")
+	}
+	col, err := app.FindCollectionByNameOrId("oidc_identities")
+	if err != nil {
+		return err
+	}
+	rec := core.NewRecord(col)
+	rec.Set("user", user.Id)
+	rec.Set("issuer", issuer)
+	rec.Set("subject", subject)
+	return app.Save(rec)
+}
 func firstNonEmpty(a, b string) string {
 	if strings.TrimSpace(a) != "" {
 		return strings.TrimSpace(a)

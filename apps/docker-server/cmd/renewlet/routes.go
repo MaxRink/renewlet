@@ -134,6 +134,17 @@ func registerRoutes(app core.App, router *router.Router[*core.RequestEvent]) []a
 		}
 		return apiSuccessJSON(e, http.StatusCreated, adminUserResponse{User: toUserDTO(app, user)})
 	})
+	admin.POST("/oidc-identities", func(e *core.RequestEvent) error {
+		locale := requestLocale(e.Request)
+		body, err := decodeStrictJSON[adminOIDCLinkRequest](e.Request, locale)
+		if err != nil {
+			return e.BadRequestError(validationErrorMessage(locale, "common.invalidRequestBody", err), err)
+		}
+		if err := linkOIDCIdentity(app, body); err != nil {
+			return e.BadRequestError(serverText(locale, "admin.updateUserFailed"), err)
+		}
+		return apiEmptySuccessJSON(e, http.StatusCreated)
+	})
 	admin.PATCH("/users/{id}", func(e *core.RequestEvent) error {
 		locale := requestLocale(e.Request)
 		id := e.Request.PathValue("id")

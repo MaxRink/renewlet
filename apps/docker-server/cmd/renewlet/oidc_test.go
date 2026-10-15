@@ -98,6 +98,43 @@ func TestOIDCFindOrLinkUserExistingAndAdminProvisioning(t *testing.T) {
 	}
 }
 
+func TestExplicitOIDCLinkRequiresVerifiedAdminAndIsConflictSafe(t *testing.T) {
+	app := newSchemaTestApp(t)
+	if err := ensureSchema(app); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RENEWLET_OIDC_ENABLED", "true")
+	t.Setenv("RENEWLET_OIDC_ISSUER", "https://auth.example.test")
+	admin, err := createUser(app, "Existing Admin", "existing@example.test", "password123", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := adminOIDCLinkRequest{UserID: admin.Id, Issuer: "https://auth.example.test/", Subject: "existing-sub", Email: "existing@example.test"}
+	if err := linkOIDCIdentity(app, req); err != nil {
+		t.Fatalf("explicit link failed: %v", err)
+	}
+	if err := linkOIDCIdentity(app, req); err != nil {
+		t.Fatalf("idempotent link failed: %v", err)
+	}
+	other, err := createUser(app, "Other Admin", "other@example.test", "password123", "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := linkOIDCIdentity(app, adminOIDCLinkRequest{UserID: other.Id, Issuer: req.Issuer, Subject: req.Subject, Email: "other@example.test"}); err == nil {
+		t.Fatal("accepted an OIDC identity already linked to another user")
+	}
+	if err := linkOIDCIdentity(app, adminOIDCLinkRequest{UserID: admin.Id, Issuer: "https://other.example.test", Subject: "other-sub", Email: req.Email}); err == nil {
+		t.Fatal("accepted an untrusted issuer")
+	}
+	normal, err := createUser(app, "Normal User", "normal@example.test", "password123", "user")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := linkOIDCIdentity(app, adminOIDCLinkRequest{UserID: normal.Id, Issuer: req.Issuer, Subject: "normal-sub", Email: "normal@example.test"}); err == nil {
+		t.Fatal("linked a non-admin user")
+	}
+}
+
 func TestVerifyOIDCIDTokenWithFakeJWKSValidatesNonceIssuerAudienceAndExpiry(t *testing.T) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
