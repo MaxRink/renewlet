@@ -43,7 +43,7 @@ func runOIDCLink(args []string) error {
 		fmt.Println("OIDC identity preflight passed")
 		return nil
 	}
-	pb := pocketbase.NewWithConfig(pocketbase.Config{DefaultDataDir: *dataDir, HideStartBanner: true})
+	pb := pocketbase.NewWithConfig(pocketbase.Config{DefaultDataDir: *dataDir, HideStartBanner: true, DefaultEncryptionEnv: "PB_ENCRYPTION_KEY"})
 	if err := pb.Bootstrap(); err != nil {
 		return fmt.Errorf("bootstrap: %w", err)
 	}
