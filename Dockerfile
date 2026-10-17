@@ -54,7 +54,7 @@ ARG BUILD_TIME=dev
 
 LABEL org.opencontainers.image.title="Renewlet" \
   org.opencontainers.image.description="Self-hosted subscription ledger and renewal reminders" \
-  org.opencontainers.image.source="https://github.com/zhiyingzzhou/renewlet" \
+  org.opencontainers.image.source="https://github.com/MaxRink/renewlet" \
   org.opencontainers.image.version="${VERSION}" \
   org.opencontainers.image.revision="${COMMIT}" \
   org.opencontainers.image.created="${BUILD_TIME}" \
