@@ -169,6 +169,28 @@ describe("Login page", () => {
     expect(screen.getByRole("link", { name: "initialize admin" })).toHaveAttribute("href", "/setup");
   });
 
+  it("shows the OIDC sign-in link only when public app status enables OIDC", () => {
+    mocks.useAppStatus.mockReturnValue({
+      status: "ready",
+      data: {
+        setupRequired: false,
+        setupEnabled: false,
+        demoMode: false,
+        oidcEnabled: true,
+        turnstile: { enabled: false, siteKey: "" },
+      },
+      error: null,
+      isLoading: false,
+      isRefreshing: false,
+      isReady: true,
+      retry: vi.fn(),
+    });
+
+    renderLogin();
+
+    expect(screen.getByRole("link", { name: "Continue with SSO" })).toHaveAttribute("href", "/api/app/auth/oidc/start");
+  });
+
   it("fails closed for password login while keeping Passkey available", () => {
     mocks.useAppStatus.mockReturnValue({
       status: "error",

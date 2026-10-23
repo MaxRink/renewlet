@@ -27,6 +27,36 @@ func TestAdminUsersRouteReturnsManagementContract(t *testing.T) {
 	}
 }
 
+func TestAdminOIDCLinkRouteRequiresSessionCSRFAndMatchingEmail(t *testing.T) {
+	app := newSchemaTestApp(t)
+	if err := ensureSchema(app); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RENEWLET_OIDC_ENABLED", "true")
+	t.Setenv("RENEWLET_OIDC_ISSUER", "https://auth.example.test")
+	admin, token := createRouteTestUser(t, app, "admin")
+	body := `{"userId":"` + admin.Id + `","issuer":"https://auth.example.test","subject":"admin-sub","email":"attacker@example.com"}`
+	if res := serveTestRequest(t, app, http.MethodPost, "/api/app/admin/oidc-identities", body, ""); res.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated link returned %d: %s", res.Code, res.Body.String())
+	}
+	parts := strings.SplitN(strings.TrimPrefix(token, routeTestProductSessionPrefix), ":", 2)
+	if len(parts) != 2 {
+		t.Fatalf("unexpected test session token %q", token)
+	}
+	if res := serveTestRequest(t, app, http.MethodPost, "/api/app/admin/oidc-identities", body, routeTestProductSessionPrefix+parts[0]); res.Code != http.StatusForbidden {
+		t.Fatalf("missing CSRF token returned %d: %s", res.Code, res.Body.String())
+	}
+	if res := serveTestRequest(t, app, http.MethodPost, "/api/app/admin/oidc-identities", body, token); res.Code != http.StatusBadRequest {
+		t.Fatalf("forged email returned %d: %s", res.Code, res.Body.String())
+	}
+	valid := `{"userId":"` + admin.Id + `","issuer":"https://auth.example.test","subject":"admin-sub","email":"admin-admin@example.com"}`
+	// createRouteTestUser's email is admin-admin@example.com; a valid request is
+	// checked separately so the forged-email case cannot accidentally link.
+	if res := serveTestRequest(t, app, http.MethodPost, "/api/app/admin/oidc-identities", valid, token); res.Code != http.StatusCreated {
+		t.Fatalf("valid link returned %d: %s", res.Code, res.Body.String())
+	}
+}
+
 func TestAdminPatchUserRejectsStrictJSONViolations(t *testing.T) {
 	app := newSchemaTestApp(t)
 	if err := ensureSchema(app); err != nil {
