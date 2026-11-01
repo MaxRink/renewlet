@@ -192,6 +192,24 @@ describe("authClient.useSession", () => {
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
+  it("validates a cookie-only session after a server redirect login such as native OIDC", async () => {
+    document.cookie = "renewlet_csrf=csrf-from-callback; path=/";
+    try {
+      mocks.fetch.mockImplementation(() => Promise.resolve(sessionResponse(sessionFixture)));
+
+      renderSessionApp();
+
+      await waitFor(() => {
+        expect(screen.getByRole("status", { name: "session state" })).toHaveTextContent("user-1");
+      });
+      expect(mocks.fetch).toHaveBeenCalledTimes(1);
+      expect(mocks.fetch.mock.calls[0]![0]).toBe("/api/app/auth/session");
+      expect(readProductSession()?.user.id).toBe("user-1");
+    } finally {
+      document.cookie = "renewlet_csrf=; path=/; max-age=0";
+    }
+  });
+
   it("stores the product session after passkey sign-in succeeds", async () => {
     const result = await authClient.signIn.passkey();
 
