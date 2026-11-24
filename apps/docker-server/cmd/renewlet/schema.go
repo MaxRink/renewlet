@@ -124,7 +124,38 @@ func ensureCollectionsSchema(app core.App) error {
 	if err := ensureAuthSecuritySettingsCollection(app); err != nil {
 		return err
 	}
+	if err := ensureOIDCIdentitiesCollection(app); err != nil {
+		return err
+	}
 	return ensureMediaIconIndexesCollection(app)
+}
+
+func ensureOIDCIdentitiesCollection(app core.App) error {
+	users, err := app.FindCollectionByNameOrId("users")
+	if err != nil {
+		return err
+	}
+	return ensureCollection(app, "oidc_identities", func(c *core.Collection) error {
+		// This is an internal linking table. Never expose identity subjects through the PocketBase REST API.
+		// A contradictory field predicate is valid PocketBase syntax and remains closed even to authenticated users.
+		deny := "issuer = 'oidc-internal-denied' && issuer = 'oidc-internal-allowed'"
+		c.ListRule, c.ViewRule, c.CreateRule, c.UpdateRule, c.DeleteRule = types.Pointer(deny), types.Pointer(deny), types.Pointer(deny), types.Pointer(deny), types.Pointer(deny)
+		for _, field := range []core.Field{
+			&core.RelationField{Name: "user", CollectionId: users.Id, MaxSelect: 1, Required: true},
+			&core.TextField{Name: "issuer", Required: true, Max: 2048},
+			&core.TextField{Name: "subject", Required: true, Max: 512},
+		} {
+			if err := upsertField(c, field); err != nil {
+				return err
+			}
+		}
+		if err := ensureAutodates(c); err != nil {
+			return err
+		}
+		c.AddIndex("idx_oidc_identities_issuer_subject_unique", true, "issuer, subject", "")
+		c.AddIndex("idx_oidc_identities_user_issuer_unique", true, "user, issuer", "")
+		return nil
+	})
 }
 
 func ensureUsersCollectionSchema(app core.App, users *core.Collection) error {

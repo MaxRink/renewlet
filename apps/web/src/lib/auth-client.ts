@@ -118,9 +118,18 @@ async function requestFreshSession(key: string, signal: AbortSignal): Promise<Se
   }
 }
 
+/**
+ * A server-side login that ends in a browser redirect (native OIDC callback) only sets cookies and
+ * never writes the local product session. The readable CSRF cookie is issued together with the
+ * HttpOnly session cookie, so its presence is the signal to validate the cookie session once.
+ */
+function hasCookieSessionHint(): boolean {
+  return Object.keys(getProductCsrfHeader()).length > 0;
+}
+
 function refreshSession(signal: AbortSignal): Promise<SessionData | null> {
   const record = readProductSessionRecord();
-  if (!record) return Promise.resolve(null);
+  if (!record && !hasCookieSessionHint()) return Promise.resolve(null);
   return requestFreshSession(sessionRecordKey(record), signal);
 }
 
@@ -135,7 +144,7 @@ function sessionQueryOptions(sessionRecord: ProductSessionRecord | null) {
     queryFn: ({ signal }) => refreshSession(signal),
     initialData: () => sessionRecord?.value ?? null,
     initialDataUpdatedAt: () => sessionRecord?.verifiedAt ?? 0,
-    enabled: Boolean(sessionRecord),
+    enabled: Boolean(sessionRecord) || hasCookieSessionHint(),
     retry: false,
     staleTime: SESSION_STALE_TIME_MS,
     refetchOnReconnect: false,
@@ -164,7 +173,8 @@ export function initializeProductSessionQuery(queryClient: QueryClient): () => v
     queryClient.setQueryData(
       SESSION_QUERY_KEY,
       record?.value ?? null,
-      record ? { updatedAt: record.verifiedAt } : undefined,
+      // Without a local record the null placeholder must stay stale, so a cookie-only session still validates on mount.
+      { updatedAt: record?.verifiedAt ?? 0 },
     );
     observer.setOptions(sessionQueryOptions(record));
   };

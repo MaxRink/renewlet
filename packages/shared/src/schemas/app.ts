@@ -23,6 +23,7 @@ export const appStatusPayloadSchema = z.object({
   setupRequired: z.boolean(),
   setupEnabled: z.boolean(),
   demoMode: z.boolean(),
+  oidcEnabled: z.boolean().optional(),
   // 只允许公开 siteKey；Turnstile secret 是后端 Siteverify 凭据，不能进入认证前 status 或前端缓存。
   turnstile: turnstilePublicConfigSchema,
 }).strict();

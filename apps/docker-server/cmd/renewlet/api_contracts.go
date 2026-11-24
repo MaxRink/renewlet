@@ -60,6 +60,7 @@ type appStatusResponse struct {
 	SetupRequired bool                  `json:"setupRequired"`
 	SetupEnabled  bool                  `json:"setupEnabled"`
 	DemoMode      bool                  `json:"demoMode"`
+	OIDCEnabled   bool                  `json:"oidcEnabled"`
 	Turnstile     turnstilePublicConfig `json:"turnstile"`
 }
 
@@ -318,6 +319,26 @@ type adminPatchUserRequest struct {
 	Role        *string `json:"role,omitempty"`
 	Banned      *bool   `json:"banned,omitempty"`
 	NewPassword *string `json:"newPassword,omitempty"`
+}
+
+// adminOIDCLinkRequest is intentionally explicit: linking never infers a
+// local account from an email address or creates a new account.
+type adminOIDCLinkRequest struct {
+	UserID  string `json:"userId" validate:"required"`
+	Issuer  string `json:"issuer" validate:"required"`
+	Subject string `json:"subject" validate:"required"`
+	Email   string `json:"email" validate:"required,email"`
+}
+
+func (r *adminOIDCLinkRequest) Validate(locale appLocale) error {
+	r.UserID = strings.TrimSpace(r.UserID)
+	r.Issuer = strings.TrimRight(strings.TrimSpace(r.Issuer), "/")
+	r.Subject = strings.TrimSpace(r.Subject)
+	r.Email = strings.TrimSpace(r.Email)
+	if r.UserID == "" || r.Issuer == "" || r.Subject == "" || !isValidEmailAddress(r.Email) {
+		return errors.New(serverText(locale, "common.invalidRequestParameters"))
+	}
+	return nil
 }
 
 // Validate 校验管理员用户 patch 请求。
