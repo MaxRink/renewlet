@@ -23,7 +23,7 @@ RUN pnpm --filter @renewlet/client build
 # 预压缩只属于 Go 嵌入式运行面；Cloudflare 构建继续交给平台自动协商，避免上传无用 sidecar。
 RUN pnpm --filter @renewlet/client build:docker-sidecars
 
-FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine3.24 AS server-builder
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine3.24@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS server-builder
 
 # Release workflow 和 Docker buildx 会注入这些元数据；页面内更新和版本弹窗都依赖 ldflags 中的值。
 ARG TARGETOS=linux
@@ -54,7 +54,7 @@ ARG BUILD_TIME=dev
 
 LABEL org.opencontainers.image.title="Renewlet" \
   org.opencontainers.image.description="Self-hosted subscription ledger and renewal reminders" \
-  org.opencontainers.image.source="https://github.com/zhiyingzzhou/renewlet" \
+  org.opencontainers.image.source="https://github.com/MaxRink/renewlet" \
   org.opencontainers.image.version="${VERSION}" \
   org.opencontainers.image.revision="${COMMIT}" \
   org.opencontainers.image.created="${BUILD_TIME}" \
